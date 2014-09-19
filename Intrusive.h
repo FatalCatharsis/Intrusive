@@ -104,7 +104,8 @@ namespace intrusive
      * @return - hands back a base_hook * pointing to the hook in question
      */
     #define GET_HOOK(I, cont_ptr) static_cast<hook*>(I->get_hook(cont_ptr))
-
+    #define GET_HOOK_C(I, cont_ptr) static_cast<const hook*>(I->c_get_hook(cont_ptr))
+    
     // Forward Declaration
     class base_container;
 
@@ -261,7 +262,7 @@ namespace intrusive
          * @param listptr - a pointer to the container which will be used to
          *       call it's create_hook() method and obtain a hook from it.
          */
-        virtual void attach(base_container * listptr) = 0;
+        virtual void attach( base_container * listptr) = 0;
 
         /**
          * Pure Virtual Function Declaration
@@ -283,7 +284,9 @@ namespace intrusive
          *       container. The pointer is used as a unique identifier.
          * @return - a hook is returned for the given container.
          */
-        virtual base_hook* get_hook(base_container*) = 0;
+        virtual base_hook* get_hook( base_container*) = 0;
+        
+        virtual const base_hook* c_get_hook(const base_container*) const = 0;
     };
 
     /**********************************************************************
@@ -406,9 +409,27 @@ namespace intrusive
          * -- INLINE --
          */
         base_hook* get_hook(base_container*) {return &m_hook;}
-
+        
+        /**
+         * Function Declaration
+         * @name - get_hook(base_container*) const
+         * @scope - template< template<class> class TContainer>
+         *          intrusive::static_node<TContainer>
+         * @purpose - retrieves the hook owned by the static_node. Since it
+         *       only ever owns one, there is no need to search for it, and
+         *       therefore, does not need the pointer to the container needing
+         *       it. This overwrites the method declared in
+         *       intrusive::base_node.
+         * @pre - the object must be attached or belong to the container before
+         *       this method is called
+         * @param - unused
+         * @return - a const pointer to the hook owned by the node is returned
+         * -- INLINE --
+         */
+         const base_hook* c_get_hook(const base_container*) const {return &m_hook;}
+         
     private:
-        base_container* m_listptr;
+        const base_container* m_listptr;
         // since the hook class member of the container class should never be
         // be dependant upon the template parameter, the template parameter
         // used does not matter to make the hook.
@@ -539,6 +560,20 @@ namespace intrusive
          */
         base_hook* get_hook(base_container*) { return m_hook.get();}
 
+        /**
+         * Function Declaration
+         * @name - get_hook(base_container*) const
+         * @scope - intrusive::any_hook
+         * @purpose - retrieves the hook owned by the any_node. Since it only
+         *       ever owns one, there is no need to search for it, and
+         *       therefore, it does not need the pointer to the container
+         *       needing it. This overwrites the method declared in
+         *       intrusive::base_node.
+         * @return - a const pointer to the hook owned by the node is returned
+         * -- INLINE --
+         */
+        const base_hook* c_get_hook(const base_container*) const { return m_hook.get();}
+        
     private:
         base_container * m_listptr;
         std::shared_ptr<base_hook> m_hook;
@@ -579,7 +614,7 @@ namespace intrusive
         public base_node
     {
         // too lazy to type this type a lot
-        typedef std::map<base_container* ,std::shared_ptr<base_hook> > map_type;
+        typedef std::map<base_container* , std::shared_ptr<base_hook> > map_type;
 
     public:
         /**
@@ -670,8 +705,21 @@ namespace intrusive
          * @return - a pointer to the hook used by the container is returned.
          * -- INLINE --
          */
-        base_hook* get_hook(base_container* listptr) { return m_hooks[listptr].get();}
+        base_hook* get_hook(base_container* listptr) { return m_hooks.at(listptr).get();}
 
+        /**
+         * Function Declaration
+         * @name - get_hook(base_container*) const
+         * @scope - intrusive::dynamic_node
+         * @purpose - This is used to obtain the hook corresponding to the
+         *       given container. The pointer is used to navigate the map
+         *       and locate the hook used by the container.
+         * @pre - listptr CANNOT be null and must point to a valid container
+         * @return - a const pointer to the hook used by the container is returned.
+         * -- INLINE --
+         */
+         const base_hook* c_get_hook(const base_container* listptr) const { return m_hooks.at(const_cast<base_container*>(listptr)).get();}
+         
     private:
         map_type m_hooks;
     };

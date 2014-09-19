@@ -161,7 +161,7 @@ namespace intrusive
                 if(m_current->is_terminal())
                     throw std::out_of_range("Iterator out of range.");
 
-                return *static_cast<T*>(m_current);
+                return *reinterpret_cast<T*>(m_current);
             }
 
             /**
@@ -179,7 +179,7 @@ namespace intrusive
                 if(m_current->is_terminal())
                     throw std::out_of_range("Iterator out of range.");
 
-                return *static_cast<T*>(m_current);
+                return *reinterpret_cast<T*>(m_current);
             }
 
             /**
@@ -194,9 +194,9 @@ namespace intrusive
              */
             iterator& operator++()
             {
-                if(!m_current->is_terminal_begin())
+                if(!m_current->is_terminal_end())
                 {
-                    hook * current = static_cast<hook*>(m_current->get_hook(m_listptr));
+                    hook * current = GET_HOOK(m_current, m_listptr);
                     m_current = current->m_next;
                 }
 
@@ -232,9 +232,9 @@ namespace intrusive
              */
             iterator& operator--()
             {
-                if(!m_current->is_terminal_end())
+                if(!m_current->is_terminal_begin())
                 {
-                    hook * current = m_current->get_hook(m_listptr);
+                    hook * current = GET_HOOK(m_current, m_listptr);
                     m_current = current->m_prev;
                 }
 
@@ -251,7 +251,7 @@ namespace intrusive
              *       else, nothing will happen.
              * @return - a COPY of this iterator is returned by VALUE
              */
-            iterator& operator--(int)
+            iterator operator--(int)
             {
                 iterator temp(*this);
                 --*this;
@@ -349,6 +349,16 @@ namespace intrusive
              */
             base_hook* get_hook(base_container* listptr) final {return &m_hook;}
 
+            /**
+             * Function Declaration
+             * @name - get_hook(base_container*)
+             * @scope - template<class T> intrusive::list<T>::terminator
+             * @purpose - obtain this terminators hook
+             * @param listptr - unused
+             * @return - a pointer to the hook this terminator owns
+             */
+             const base_hook* c_get_hook(const base_container* listptr) const final {return &m_hook;}
+             
         private:
             hook m_hook;
         };
@@ -438,8 +448,8 @@ namespace intrusive
          */
         list()
         {
-            hook * front = static_cast<hook*>(m_Begin.get_hook(this));
-            hook * back = static_cast<hook*>(m_End.get_hook(this));
+            hook * front = GET_HOOK((&m_Begin), this);
+            hook * back = GET_HOOK((&m_End), this);
 
             front->m_prev = nullptr;
             front->m_next = &m_End;
@@ -471,9 +481,32 @@ namespace intrusive
          */
         bool is_empty() const
         {
-            hook * front = m_Begin.get_hook(this);
+            hook * front = GET_HOOK((&m_Begin), this);
 
-            return (front->m_next = &m_End)?true:false;
+            return (front->m_next == &m_End)?true:false;
+        }
+        
+        /**
+         * Function Declaration
+         * @name - size() const
+         * @scope - template<class T> intrusive::list<T>
+         * @purpose - determines the number of elements currently in the list
+         * @return - returns number of elements currently in the list
+         */
+        int size() const
+        {
+            int size = 0;
+            const base_node * nextNode = &m_Begin;
+            const hook * nextHook = GET_HOOK_C(nextNode, this);
+            
+            while(nextHook->m_next != &m_End)
+            {
+              size++;
+              nextNode = nextHook->m_next;
+              nextHook = GET_HOOK_C(nextNode, this);
+            }
+            
+            return size;
         }
 
         /**
@@ -489,9 +522,9 @@ namespace intrusive
         {
             val.attach(this);
 
-            hook * end = static_cast<hook*>(m_End.get_hook(this));
-            hook * left = static_cast<hook*>(end->m_prev->get_hook(this));
-            hook * middle = static_cast<hook*>(val.get_hook(this));
+            hook * end = GET_HOOK((&m_End), this);
+            hook * left = GET_HOOK(end->m_prev, this);
+            hook * middle = GET_HOOK( (&val), this);
 
             left->m_next = &val;
             middle->m_prev = end->m_prev;
@@ -525,7 +558,7 @@ namespace intrusive
          */
         iterator begin()
         {
-            hook * front = static_cast<hook*>(m_Begin.get_hook(this));
+            hook * front = GET_HOOK( (&m_Begin), this);
 
             return iterator(this, front->m_next);
         }
@@ -555,7 +588,7 @@ namespace intrusive
          */
         iterator rbegin()
         {
-            hook * end = m_End.get_hook(this);
+            hook * end = GET_HOOK(m_End, this);
 
             return iterator(this, end->m_prev);
         }
