@@ -508,7 +508,23 @@ namespace intrusive
             
             return size;
         }
-
+        
+        iterator erase(iterator& it)
+        {
+            base_node * n = static_cast<base_node*>(&(*it));
+            hook * h = GET_HOOK(n, this);
+            base_node * next = h->m_next;
+            
+            it++;
+            
+            n->detach();
+            
+            while(it != end())
+              it++;
+               
+            return iterator(this, next);
+        }
+        
         /**
          * Function Declaration
          * @name - push_back(base_node & val)
